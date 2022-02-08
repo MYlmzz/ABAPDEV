@@ -1,0 +1,346 @@
+REPORT  ZSD_URUN_YONETIM_YUZDE.
+
+include zurun_kar_top.
+include zurun_kar_cls.
+include zurun_kar_pbo.
+include zurun_kar_pai.
+include zurun_kar_form.
+
+START-OF-SELECTION.
+
+perform get_data.
+perform set_fcat.
+perform set_layout.
+
+call SCREEN 0100.
+
+**********
+*&---------------------------------------------------------------------
+*
+*&  Include           ZURUN_KAR_TOP
+*&---------------------------------------------------------------------*
+
+tables: zsd_ort_uy_yuzde , zpp_logo_strc.
+
+data: go_alv type ref to cl_gui_alv_grid.
+data: go_cont type ref to cl_gui_custom_container.
+
+data: gt_itab type table of zsd_ort_uy_yuzde,
+      gs_itab type zsd_ort_uy_yuzde.
+
+types: begin of gty_seconditab ,
+         zindex type int4.
+        include structure gs_itab.
+types: end of gty_seconditab.
+
+data: gt_seconditab type table of gty_seconditab,
+      gs_seconditab type gty_seconditab.
+
+data : zindex_rows type lvc_t_row.
+
+
+data: gt_fcat      type lvc_t_fcat,
+      gs_fcat      type lvc_s_fcat,
+      gs_layout    type lvc_s_layo.
+
+class cl_event_receiver definition deferred.
+
+data: go_event_receiver type ref to cl_event_receiver.
+
+*******************************************************
+
+*&---------------------------------------------------------------------*
+*&  Include           ZURUN_KAR_CLS
+*&---------------------------------------------------------------------*
+
+class cl_event_receiver definition.
+  public section.
+
+    methods handle_data_changed
+      for event data_changed of cl_gui_alv_grid
+        importing
+          er_data_changed
+          e_onf4
+          e_onf4_before
+          e_onf4_after
+          e_ucomm.
+
+endclass.                    "CL_EVENT_RECEIVER DEFINITION
+
+*----------------------------------------------------------------------*
+*       CLASS CL_EVENT_RECEIVER IMPLEMENTATION
+*----------------------------------------------------------------------*
+*
+*----------------------------------------------------------------------*
+class cl_event_receiver implementation.
+
+  method handle_data_changed.
+
+    data: ls_modi type lvc_s_modi.
+
+    loop at er_data_changed->mt_good_cells into ls_modi.
+
+      read table gt_seconditab into gs_seconditab index ls_modi-row_id.
+      if sy-subrc ne 0.
+        message ' Process Error ' type 'E'.
+      endif.
+    endloop.
+
+  endmethod.                    "HANDLE_DATA_CHANGED
+
+endclass.                    "CL_EVENT_RECEIVER IMPLEMENTATION
+
+**********************************************************************
+*&---------------------------------------------------------------------*
+*&  Include           ZURUN_KAR_PBO
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Module  STATUS_0100  OUTPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+module status_0100 output.
+  set pf-status '0100'.
+  set titlebar '0100'.
+
+  perform display_alv.
+
+endmodule.                 " STATUS_0100  OUTPUT
+
+**********************************************************
+
+*&---------------------------------------------------------------------*
+*&  Include           ZURUN_KAR_PAI
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0100  INPUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+module user_command_0100 input.
+  case sy-ucomm.
+    when '&F03'.
+      set screen 0.
+    when '&SAVE'.
+      perform save_changed.
+  endcase.
+endmodule.                 " USER_COMMAND_0100  INPUT
+
+***************************************************************
+
+*&---------------------------------------------------------------------*
+*&  Include           ZURUN_KAR_FORM
+*&---------------------------------------------------------------------*
+*&---------------------------------------------------------------------*
+*&      Form  GET_DATA
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+form get_data .
+
+  data: gv_total type int4.
+  data: gv_sira  type int4.
+
+  select zyiyd waers datbi zkarorn datab kayit_user kayit_date
+         kayit_time degis_user degis_tarih degis_saat
+    from zsd_ort_uy_yuzde
+      into corresponding fields of table gt_itab.
+
+  loop at gt_itab into gs_itab.
+
+    move-corresponding gs_itab to gs_seconditab.
+    append gs_seconditab to gt_seconditab.
+
+  endloop.
+  loop at gt_seconditab into gs_seconditab.
+
+    read table gt_seconditab into gs_seconditab index sy-tabix.
+
+    gs_seconditab-zindex = sy-tabix.
+    modify gt_seconditab from gs_seconditab.
+
+  endloop.
+
+endform.                    " GET_DATA
+*&---------------------------------------------------------------------*
+*&      Form  SET_FCAT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+form set_fcat .
+
+  clear: gs_fcat.
+  gs_fcat-fieldname = 'ZINDEX'.
+  gs_fcat-scrtext_s = 'Sıra'.
+  gs_fcat-scrtext_l = 'Sıra'.
+  gs_fcat-col_opt   = abap_true.
+  append gs_fcat to gt_fcat.
+
+  clear: gs_fcat.
+  gs_fcat-fieldname = 'ZYIYD'.
+  gs_fcat-scrtext_s = 'YI/YD'.
+  gs_fcat-scrtext_l = 'Yurt İçi / Yurt Dışı '.
+  gs_fcat-col_opt   = abap_true.
+
+  append gs_fcat to gt_fcat.
+
+  clear: gs_fcat.
+  gs_fcat-fieldname = 'WAERS'.
+  gs_fcat-scrtext_s = 'Para B'.
+  gs_fcat-scrtext_l = 'Para Birimi'.
+  gs_fcat-col_opt   = abap_true.
+
+  append gs_fcat to gt_fcat.
+
+  clear: gs_fcat.
+  gs_fcat-fieldname = 'DATBI'.
+  gs_fcat-scrtext_s = 'Geçerlilik S.'.
+  gs_fcat-scrtext_l = 'Geçerlilik Sonu'.
+  gs_fcat-col_opt   = abap_true.
+
+  append gs_fcat to gt_fcat.
+
+  clear: gs_fcat.
+  gs_fcat-fieldname = 'ZKARORN'.
+  gs_fcat-scrtext_s = 'Yüzde Oran'.
+  gs_fcat-scrtext_l = 'Yüzde Oran'.
+  gs_fcat-edit      = abap_true.
+  gs_fcat-col_opt   = abap_true.
+
+  append gs_fcat to gt_fcat.
+
+  clear: gs_fcat.
+  gs_fcat-fieldname = 'DATAB'.
+  gs_fcat-scrtext_s = 'Geçerlilik Bşl'.
+  gs_fcat-scrtext_l = 'Geçerlilik Başlangıç'.
+  gs_fcat-col_opt   = abap_true.
+
+  append gs_fcat to gt_fcat.
+
+  clear: gs_fcat.
+  gs_fcat-fieldname = 'KAYIT_USER'.
+  gs_fcat-scrtext_s = 'Kaydeden'.
+  gs_fcat-scrtext_l = 'Kaydeden'.
+  gs_fcat-col_opt   = abap_true.
+
+  append gs_fcat to gt_fcat.
+
+  clear: gs_fcat.
+  gs_fcat-fieldname = 'KAYIT_DATE'.
+  gs_fcat-scrtext_s = 'Kayıt T'.
+  gs_fcat-scrtext_l = 'Kayıt Tarihi'.
+  gs_fcat-col_opt   = abap_true.
+
+  append gs_fcat to gt_fcat.
+
+  clear: gs_fcat.
+  gs_fcat-fieldname = 'KAYIT_TIME'.
+  gs_fcat-scrtext_s = 'Kayıt S'.
+  gs_fcat-scrtext_l = 'Kayıt Saati'.
+  gs_fcat-col_opt   = abap_true.
+
+  append gs_fcat to gt_fcat.
+
+  clear: gs_fcat.
+  gs_fcat-fieldname = 'DEGIS_USER'.
+  gs_fcat-scrtext_s = 'Değiştiren'.
+  gs_fcat-scrtext_l = 'Değiştiren'.
+  gs_fcat-col_opt   = abap_true.
+
+  append gs_fcat to gt_fcat.
+
+  clear: gs_fcat.
+  gs_fcat-fieldname = 'DEGIS_TARIH'.
+  gs_fcat-scrtext_s = 'Değişiklik T.'.
+  gs_fcat-scrtext_l = 'Değişiklik Tarihi'.
+  gs_fcat-col_opt   = abap_true.
+
+  append gs_fcat to gt_fcat.
+
+  clear: gs_fcat.
+  gs_fcat-fieldname = 'DEGIS_SAAT'.
+  gs_fcat-scrtext_s = 'Değişiklik S'.
+  gs_fcat-scrtext_l = 'Değişiklik Saati'.
+  gs_fcat-col_opt   = abap_true.
+
+  append gs_fcat to gt_fcat.
+
+endform.                    " SET_FCAT
+*&---------------------------------------------------------------------*
+*&      Form  SET_LAYOUT
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+form set_layout .
+
+  clear gs_layout.
+  gs_layout-cwidth_opt = abap_true.
+  gs_layout-no_toolbar = abap_true.
+  gs_layout-zebra      = abap_true.
+  gs_layout-col_opt    = abap_true.
+
+endform.                    " SET_LAYOUT
+*&---------------------------------------------------------------------*
+*&      Form  DISPLAY_ALV
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+form display_alv .
+
+  create object go_alv
+    exporting
+      i_parent = cl_gui_container=>screen0.
+
+  create object go_event_receiver.
+
+  set handler go_event_receiver->handle_data_changed for go_alv.
+
+  call method go_alv->set_table_for_first_display
+    exporting
+      is_layout       = gs_layout
+    changing
+      it_outtab       = gt_seconditab[]
+      it_fieldcatalog = gt_fcat.
+
+  call method go_alv->register_edit_event
+    exporting
+      i_event_id = cl_gui_alv_grid=>mc_evt_modified.
+
+endform.                    " DISPLAY_ALV
+*&---------------------------------------------------------------------*
+*&      Form  SAVE_CHANGED
+*&---------------------------------------------------------------------*
+*       text
+*----------------------------------------------------------------------*
+*  -->  p1        text
+*  <--  p2        text
+*----------------------------------------------------------------------*
+form save_changed .
+
+  loop at gt_seconditab into gs_seconditab.
+    read table gt_itab into gs_itab index sy-tabix.
+    if gs_itab-zkarorn ne gs_seconditab-zkarorn.
+
+      gs_itab-zkarorn = gs_seconditab-zkarorn.
+      modify table gt_itab from gs_itab.
+    endif.
+  endloop.
+
+  update  zsd_ort_uy_yuzde from table  gt_itab.
+
+
+endform.                    " SAVE_CHANGED
+
+*************************************************
